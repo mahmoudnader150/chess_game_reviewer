@@ -1,23 +1,35 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { classifyMove } from '../services/classification';
 
 export function useAnalysis() {
   const [analysisResults, setAnalysisResults] = useState({});
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const workerRef = useRef(null);
+  const queueRef = useRef([]);
 
   useEffect(() => {
-    // Initialize Web Worker
     workerRef.current = new Worker(new URL('../engine/worker.js', import.meta.url), { type: 'module' });
 
     workerRef.current.onmessage = (e) => {
       if (e.data.type === 'analysis') {
         const { fen, value, san, move } = e.data;
-        setAnalysisResults((prev) => ({
-          ...prev,
-          [fen]: { eval: value, bestMove: san, moveDetails: move }
-        }));
+        setAnalysisResults((prev) => {
+          const newResults = {
+            ...prev,
+            [fen]: { eval: value, bestMove: san, moveDetails: move }
+          };
+          
+          // Calculate progress based on how many FENs we've analyzed
+          const totalRequested = queueRef.current.length;
+          const analyzedCount = Object.keys(newResults).length;
+          setProgress(Math.round((analyzedCount / totalRequested) * 100));
+          
+          if (analyzedCount === totalRequested) {
+            setIsAnalyzing(false);
+          }
+          
+          return newResults;
+        });
       }
     };
 
@@ -26,41 +38,30 @@ export function useAnalysis() {
     };
   }, []);
 
-  const analyzeGame = useCallback(async (fens) => {
+  const analyzeGame = useCallback((fens) => {
+    if (!fens || fens.length === 0) return;
+    
     setIsAnalyzing(true);
     setProgress(0);
     setAnalysisResults({});
+    queueRef.current = fens;
 
-    for (let i = 0; i < fens.length; i++) {
-      const fen = fens[i];
-      
-      // Request analysis from worker
+    // Send all moves to worker at once. 
+    // The worker will process them sequentially in its own thread.
+    fens.forEach((fen) => {
       workerRef.current.postMessage({
         type: 'analyze',
         fen,
-        depth: 12, // Sufficient for quick review
-        maxTimeMs: 300
+        depth: 10, // Lower depth for speed, but still decent
+        maxTimeMs: 150 // Faster processing per move
       });
+    });
+  }, []);
 
-      // Wait for result (simplified polling/callback logic for this prototype)
-      // In a real app, we'd use a promise-based queue
-      await new Promise(resolve => {
-        const checkResult = () => {
-          if (workerRef.current) {
-            // This is a bit hacky, but for a one-turn implementation it works:
-            // The worker will send 'analysis' message which updates state.
-            // We just wait a bit for the worker to finish.
-            setTimeout(resolve, 350); 
-          }
-        };
-        checkResult();
-      });
-      
-      setProgress(Math.round(((i + 1) / fens.length) * 100));
-    }
-
+  const stopAnalysis = useCallback(() => {
+    workerRef.current.postMessage({ type: 'stop' });
     setIsAnalyzing(false);
   }, []);
 
-  return { analyzeGame, analysisResults, isAnalyzing, progress };
+  return { analyzeGame, stopAnalysis, analysisResults, isAnalyzing, progress };
 }

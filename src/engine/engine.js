@@ -745,6 +745,58 @@ export class Engine {
     }
   }
 
+  // Run iterative deepening from depth 1 up to `maxDepth`, returning the
+  // best move found so far on every completed iteration. Respects the time
+  // budget and never blocks past `maxTimeMs` total.
+  iterativeDeepening(maxDepth = 20, maxTimeMs = 2000) {
+    const moves = this.legalMoves()
+    if (moves.length === 0) return null
+    this.orderMoves(moves, 0)
+
+    this.nodes = 0
+    this.aborted = false
+    this.killers = []
+    this.history.fill(0)
+    const deadline = Date.now() + maxTimeMs
+    let best = moves[0]
+    let bestValue = -INFINITY
+
+    for (let depth = 1; depth <= maxDepth; depth += 1) {
+      this.deadline = deadline
+      let iterationBest = null
+      let iterationValue = -INFINITY
+      let alpha = -INFINITY
+      const beta = INFINITY
+
+      for (const move of moves) {
+        this.makeMove(move)
+        const score = -this.negamax(depth - 1, -beta, -alpha, 1)
+        this.unmakeMove()
+        if (this.aborted) break
+        if (score > iterationValue) {
+          iterationValue = score
+          iterationBest = move
+        }
+        if (score > alpha) alpha = score
+      }
+
+      if (this.aborted) break
+      if (iterationBest) {
+        best = iterationBest
+        bestValue = iterationValue
+      }
+      if (Date.now() > deadline) break
+    }
+
+    return {
+      move: best,
+      value: this.aborted ? 0 : bestValue,
+      san: this.moveToSan(best),
+      nodes: this.nodes,
+      aborted: this.aborted,
+    }
+  }
+
   // Best move from the current position, with its value and SAN.
   bestMove(depth, options = {}) {
     const moves = this.legalMoves()

@@ -9,3 +9,6 @@ dist-ssr
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Copied from node_modules/stockfish by scripts/copy-stockfish.mjs
+public/stockfish

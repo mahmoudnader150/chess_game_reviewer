@@ -39,7 +39,8 @@ function perft(engine, depth) {
   let nodes = 0
   for (const move of moves) {
     engine.makeMove(move)
-    if (!engine.inCheck(engine.turn)) {
+    // makeMove flips the turn: check the king of the side that just moved.
+    if (!engine.inCheck(-engine.turn)) {
       nodes += perft(engine, depth - 1)
     }
     engine.unmakeMove()

@@ -5,7 +5,14 @@
 //   { type: 'evaluate', fen }
 //   { type: 'stop' }
 
-import { Engine } from './engine.js'
+import { Engine, squareName } from './engine.js'
+
+const PROMO = ['', '', 'n', 'b', 'r', 'q']
+
+function toUci(move) {
+  if (!move) return null
+  return squareName(move.from) + squareName(move.to) + (move.promotion ? PROMO[move.promotion] : '')
+}
 
 let engine = null
 
@@ -27,7 +34,19 @@ self.onmessage = (event) => {
       }
       engine.setFen(msg.fen)
       const result = engine.iterativeDeepening(msg.depth ?? 15, msg.maxTimeMs ?? 1500)
-      self.postMessage({ type: 'analysis', fen: msg.fen, ...result })
+      if (!result) {
+        // No legal moves: checkmate or stalemate.
+        self.postMessage({ type: 'analysis', fen: msg.fen, value: 0, uci: null, san: null, depth: 0 })
+        break
+      }
+      self.postMessage({
+        type: 'analysis',
+        fen: msg.fen,
+        value: result.value,
+        san: result.san,
+        uci: toUci(result.move),
+        depth: result.depth,
+      })
       break
     }
     case 'evaluate': {

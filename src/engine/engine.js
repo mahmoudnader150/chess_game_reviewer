@@ -35,13 +35,8 @@ const KING_OFFSETS = [1, 15, 16, 17, -1, -15, -16, -17]
 const DIAGONALS = [15, 17, -15, -17]
 const ORTHOGONALS = [1, 16, -1, -16]
 const ALL_DIRS = [1, 15, 16, 17, -1, -15, -16, -17]
-const isDiagonalOffset = (offset) => Math.abs(offset) === 15 || Math.abs(offset) === 17
-// A step is only valid when it stays on the board and lands on a sensible file:
-// vertical steps (±16) keep the file, horizontal/diagonal steps change it by one.
-const stepKeepsFile = (from, to, offset) => {
-  const diff = fileDiff(from, to)
-  return Math.abs(offset) === 16 ? diff === 0 : diff === 1
-}
+// On a 0x88 board any step that wraps around an edge lands on a square with
+// the 0x88 bit set, so `onBoard` alone is enough to stop sliding pieces.
 
 const PROMOTION_PIECES = [QUEEN, ROOK, BISHOP, KNIGHT]
 
@@ -212,7 +207,6 @@ export class Engine {
     for (const offset of DIAGONALS) {
       let cur = sq + offset
       while (onBoard(cur)) {
-        if (!stepKeepsFile(sq, cur, offset)) break
         const piece = board[cur]
         if (piece !== EMPTY) {
           if ((piece > 0 ? WHITE : BLACK) === byColor) {
@@ -231,7 +225,6 @@ export class Engine {
     for (const offset of ORTHOGONALS) {
       let cur = sq + offset
       while (onBoard(cur)) {
-        if (!stepKeepsFile(sq, cur, offset)) break
         const piece = board[cur]
         if (piece !== EMPTY) {
           if ((piece > 0 ? WHITE : BLACK) === byColor) {
@@ -290,7 +283,6 @@ export class Engine {
       for (const offset of dirs) {
         let to = sq + offset
         while (onBoard(to)) {
-          if (!stepKeepsFile(sq, to, offset)) break
           const target = board[to]
           if (target !== EMPTY && (target > 0 ? WHITE : BLACK) === us) break
           if (!capturesOnly || target !== EMPTY) moves.push(this.buildMove(sq, to, target))
@@ -388,7 +380,8 @@ export class Engine {
     const legal = []
     for (const move of pseudo) {
       this.makeMove(move)
-      if (!this.inCheck(this.turn)) legal.push(move)
+      // makeMove flips the turn, so the side that just moved is -this.turn.
+      if (!this.inCheck(-this.turn)) legal.push(move)
       this.unmakeMove()
     }
     return legal
@@ -488,7 +481,8 @@ export class Engine {
       const type = pieceType(piece)
       const color = piece > 0 ? WHITE : BLACK
       const sign = color === WHITE ? 1 : -1
-      const row = 7 - rankOf(sq)
+      // Tables are from White's view (row 0 = rank 8); mirror them for Black.
+      const row = color === WHITE ? 7 - rankOf(sq) : rankOf(sq)
       const col = fileOf(sq)
       const idx = row * 8 + col
 
@@ -527,13 +521,13 @@ export class Engine {
       const enemy = pawnFiles[-color]
       for (let file = 0; file < 8; file += 1) {
         if (own[file] > 1) {
-          mg -= 12 * (own[file] - 1)
-          eg -= 18 * (own[file] - 1)
+          mg -= sign * 12 * (own[file] - 1)
+          eg -= sign * 18 * (own[file] - 1)
         }
         const hasNeighbour = (file > 0 && own[file - 1] > 0) || (file < 7 && own[file + 1] > 0)
         if (own[file] > 0 && !hasNeighbour) {
-          mg -= 15
-          eg -= 22
+          mg -= sign * 15
+          eg -= sign * 22
         }
       }
 
@@ -551,8 +545,8 @@ export class Engine {
           }
           if (passed) {
             const progress = color === WHITE ? rank : 7 - rank
-            mg += 8 + 10 * progress
-            eg += 15 + 25 * progress
+            mg += sign * (8 + 10 * progress)
+            eg += sign * (15 + 25 * progress)
           }
         }
       }
@@ -564,8 +558,8 @@ export class Engine {
         if (piece !== color * ROOK) continue
         const file = fileOf(sq)
         if (own[file] === 0) {
-          mg += enemy[file] === 0 ? 25 : 12
-          eg += enemy[file] === 0 ? 12 : 6
+          mg += sign * (enemy[file] === 0 ? 25 : 12)
+          eg += sign * (enemy[file] === 0 ? 12 : 6)
         }
       }
 
@@ -581,13 +575,13 @@ export class Engine {
             if (ahead) shield += 1
           }
         }
-        mg += shield * 9
+        mg += sign * shield * 9
         if (shield === 0) {
           const centrality = Math.abs(3.5 - kingFile) + Math.abs(3.5 - kingRank)
-          mg -= 22 - centrality * 4
+          mg -= sign * (22 - centrality * 4)
         }
         // King in the centre without protection in the endgame is bad.
-        eg += (3.5 - Math.abs(3.5 - kingFile)) * 6 + (3.5 - Math.abs(3.5 - kingRank)) * 4
+        eg += sign * ((3.5 - Math.abs(3.5 - kingFile)) * 6 + (3.5 - Math.abs(3.5 - kingRank)) * 4)
       }
     }
 
@@ -616,7 +610,6 @@ export class Engine {
     for (const offset of dirs) {
       let to = sq + offset
       while (onBoard(to)) {
-        if (!stepKeepsFile(sq, to, offset)) break
         const target = board[to]
         if (target !== EMPTY && (target > 0 ? WHITE : BLACK) === color) break
         count += 1
@@ -693,7 +686,7 @@ export class Engine {
       const legal = []
       for (const move of moves) {
         this.makeMove(move)
-        if (!this.inCheck(this.turn)) legal.push(move)
+        if (!this.inCheck(-this.turn)) legal.push(move)
         this.unmakeMove()
       }
       moves.length = 0
@@ -760,6 +753,7 @@ export class Engine {
     const deadline = Date.now() + maxTimeMs
     let best = moves[0]
     let bestValue = -INFINITY
+    let completedDepth = 0
 
     for (let depth = 1; depth <= maxDepth; depth += 1) {
       this.deadline = deadline
@@ -784,14 +778,23 @@ export class Engine {
       if (iterationBest) {
         best = iterationBest
         bestValue = iterationValue
+        completedDepth = depth
+        // Search the previous best move first next iteration.
+        moves.splice(moves.indexOf(iterationBest), 1)
+        moves.unshift(iterationBest)
       }
+      // A forced mate was found; deeper search won't change the verdict.
+      if (Math.abs(bestValue) > MATE_SCORE - 1000) break
       if (Date.now() > deadline) break
     }
 
+    // `bestValue` always belongs to the last *completed* iteration, so it is
+    // valid even when the time budget aborted a deeper one.
     return {
       move: best,
-      value: this.aborted ? 0 : bestValue,
+      value: bestValue === -INFINITY ? this.evaluate() : bestValue,
       san: this.moveToSan(best),
+      depth: completedDepth,
       nodes: this.nodes,
       aborted: this.aborted,
     }
@@ -829,7 +832,7 @@ export class Engine {
     if (!best) best = moves[0]
     return {
       move: best,
-      value: this.aborted ? 0 : bestValue,
+      value: bestValue === -INFINITY ? this.evaluate() : bestValue,
       san: this.moveToSan(best),
       nodes: this.nodes,
     }
@@ -847,7 +850,7 @@ export class Engine {
       san = fileOf(move.to) === 6 ? 'O-O' : 'O-O-O'
     } else {
       if (type !== PAWN) san += ['', '', 'N', 'B', 'R', 'Q', 'K'][type]
-      const others = legal.filter((m) => m !== move && m.to === move.to && pieceType(m.piece) === type)
+      const others = legal.filter((m) => m.from !== move.from && m.to === move.to && pieceType(m.piece) === type)
       if (others.length > 0) {
         const sameFile = others.some((m) => fileOf(m.from) === fileOf(move.from))
         const sameRank = others.some((m) => rankOf(m.from) === rankOf(move.from))

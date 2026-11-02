@@ -239,7 +239,20 @@ export default function Home({
         </div>
       </section>
 
-      <footer className="home-footer">Not affiliated with Chess.com or Lichess.</footer>
+      <footer className="home-footer">
+        <p>Not affiliated with Chess.com or Lichess.</p>
+        <p>
+          Analysis by{' '}
+          <a href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noreferrer">
+            Stockfish.js
+          </a>
+          , licensed under the{' '}
+          <a href={`${import.meta.env.BASE_URL}stockfish/COPYING.txt`} target="_blank" rel="noreferrer">
+            GPLv3
+          </a>
+          .
+        </p>
+      </footer>
     </main>
   )
 }

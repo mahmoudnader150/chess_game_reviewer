@@ -21,6 +21,15 @@ export default function ReviewView({ game, analysis, soundOn = true, perspective
   const [orientation, setOrientation] = useState(perspective)
   const [panel, setPanel] = useState('summary')
 
+  // Show the players in the tab title while this game is open.
+  useEffect(() => {
+    const previousTitle = document.title
+    document.title = `${game.white.username} VS ${game.black.username}`
+    return () => {
+      document.title = previousTitle
+    }
+  }, [game.white.username, game.black.username])
+
   const maxPly = parsed.moves.length
   const lastPosition = parsed.positions[maxPly]
   const gameEnd = useMemo(() => describeGameEnd(game, parsed.ending, lastPosition.turn), [game, parsed.ending, lastPosition.turn])

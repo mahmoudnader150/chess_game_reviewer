@@ -83,7 +83,7 @@ export default function App() {
       {showSplash && <Splash onDone={hideSplash} />}
       <header className="topbar">
         <button type="button" className="logo" onClick={() => setSelectedGame(null)}>
-          <img src="/knight.svg" alt="" width="28" height="28" />
+          <img src={`${import.meta.env.BASE_URL}knight.svg`} alt="" width="28" height="28" />
           <span className="logo-text">Game Reviewer</span>
         </button>
         <div className="topbar-right">

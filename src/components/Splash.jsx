@@ -37,7 +37,7 @@ export default function Splash({ onDone }) {
               style={{ animationDelay: `${(row + col) * 70}ms` }}
             />
           ))}
-          <img className="splash-knight" src="/knight.svg" alt="" />
+          <img className="splash-knight" src={`${import.meta.env.BASE_URL}knight.svg`} alt="" />
         </div>
         <div className="splash-title">
           Game <span>Reviewer</span>

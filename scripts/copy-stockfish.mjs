@@ -15,4 +15,6 @@ if (!existsSync(src)) {
 }
 mkdirSync(dest, { recursive: true })
 for (const f of files) cpSync(join(src, f), join(dest, f))
+// Stockfish is GPLv3: its license has to ship with the engine.
+cpSync(join(root, 'node_modules', 'stockfish', 'Copying.txt'), join(dest, 'COPYING.txt'))
 console.log(`Copied Stockfish to ${dest}`)

@@ -1,7 +1,7 @@
 // Promise-based wrapper around one Stockfish WASM web worker (UCI), plus a
 // pool that spreads positions over several workers in parallel.
 
-const ENGINE_URL = '/stockfish/stockfish-19-lite-single.js'
+const ENGINE_URL = `${import.meta.env.BASE_URL}stockfish/stockfish-19-lite-single.js`
 
 function abortError() {
   return new DOMException('Analysis cancelled', 'AbortError')

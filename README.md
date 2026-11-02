@@ -39,6 +39,16 @@ npm run check:openings   # verify that every opening-book line is legal
 npm run lint
 ```
 
+## Deploying
+
+The app is hosted on Vercel, which detects the Vite setup automatically:
+
+```bash
+npx vercel --prod
+```
+
+The output of `npm run build` is a plain static site, so any static host works. Set `VITE_BASE=/some-path/` when building if it isn't served from the domain root.
+
 ## How the review works
 
 1. **Parse** the PGN with chess.js into positions `p0 … pN`.
@@ -58,9 +68,16 @@ npm run lint
 | Inaccuracy / Mistake / Blunder | ≤ 10% / ≤ 20% / > 20% |
 | Miss | A bad move right after the opponent erred, which lets their mistake go unpunished |
 
-6. **Accuracy** per move is `103.17·e^(−0.0435·loss) − 3.17`. Game accuracy blends a volatility-weighted mean and a harmonic mean, the same method Lichess uses. The **Game Rating** is a rough accuracy-to-Elo mapping.
+6. **Accuracy** per move is `103.17·e^(−0.12·loss) + 14.83`, capped to 0–100. Game accuracy blends a volatility-weighted mean and a harmonic mean, the same method Lichess uses. If Chess.com or Lichess has already reviewed the game, its own accuracy is shown instead, and labelled.
+7. **Game Rating** starts from the player's rating and moves up or down by 40 points for each accuracy point above or below what's typical at that rating. Without a known rating, it's the rating where that accuracy is typical.
 
-These are heuristics that approximate chess.com's proprietary model, not a copy of it.
+### How close are the numbers to Chess.com?
+
+Chess.com's accuracy and Game Rating models are private, so they can only be approximated. The accuracy curve was fitted to Chess.com's official accuracy on 57 public games and tested on 25 others, across all rating levels. On the test games, the average error fell from 7.0 to 5.0 points, so expect differences of a few points, and more on some games, when Chess.com hasn't reviewed the game.
+
+Game Rating couldn't be measured this way because Chess.com's API doesn't return it. The typical accuracy per rating comes from real data (4,592 player results), but the 40-points-per-accuracy-point slope is an assumption.
+
+Move classifications are also heuristics that approximate Chess.com's model, not a copy of it.
 
 ## Project layout
 

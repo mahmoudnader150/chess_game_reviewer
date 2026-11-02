@@ -1,9 +1,15 @@
-// Accuracy model (same as Lichess, which tracks chess.com's CAPS closely).
+// Accuracy model. The shape comes from Lichess, but the per-move curve is fitted
+// to Chess.com's official accuracy on 57 reviewed games, analyzed with this app's
+// Standard preset (and checked on 25 more). Chess.com's own model isn't public, so
+// this is an approximation. Compared with Lichess's curve, losses under about 1.6%
+// count as perfect, larger ones cost more, and even a blunder keeps about 15 points.
+const CURVE_SCALE = 103.1668100711649
+const CURVE_DECAY = 0.12
+const CURVE_OFFSET = 14.83
 
 export function moveAccuracy(winLoss) {
-  const raw = 103.1668100711649 * Math.exp(-0.04354415386753951 * Math.max(0, winLoss)) - 3.166924740191411
-  // +1 "uncertainty bonus" for imperfect analysis, as Lichess does.
-  return Math.max(0, Math.min(100, raw + 1))
+  const raw = CURVE_SCALE * Math.exp(-CURVE_DECAY * Math.max(0, winLoss)) + CURVE_OFFSET
+  return Math.max(0, Math.min(100, raw))
 }
 
 function stdDev(values) {

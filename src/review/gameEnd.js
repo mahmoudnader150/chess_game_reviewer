@@ -81,7 +81,9 @@ export function pgnTermination(headers) {
   const text = headers?.Termination
   if (!text) return null
   if (/^normal$/i.test(text.trim())) return headers.Result === '1-0' || headers.Result === '0-1' ? 'resignation' : null
-  return TERMINATION_PATTERNS.find(([pattern]) => pattern.test(text))?.[1] ?? null
+  // Drop "<username> won" first: a player can be called "FranklyCheckMate".
+  const reason = text.replace(/^.*\b(won|drawn)\b/i, '')
+  return TERMINATION_PATTERNS.find(([pattern]) => pattern.test(reason))?.[1] ?? null
 }
 
 /**

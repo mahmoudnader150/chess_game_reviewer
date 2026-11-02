@@ -1,12 +1,14 @@
 import MoveIcon from './MoveIcon'
+import GameEndBanner from './GameEndBanner'
+import { summaryStats } from '../review/accuracy'
 import { CLASSIFICATIONS, SUMMARY_ORDER } from '../review/classifications'
 
 function Accuracy({ value, side }) {
   return <div className={`accuracy-box ${side}`}>{value == null ? '—' : value.toFixed(1)}</div>
 }
 
-// Accuracy, game rating and classification counts for both players.
-export default function ReviewSummary({ game, review, status, progress, engineName, onSelectFirst }) {
+// Result, accuracy, game rating and classification counts for both players.
+export default function ReviewSummary({ game, gameEnd, review, status, progress, engineName, onSelectFirst }) {
   if (!review) {
     return (
       <div className="summary">
@@ -25,9 +27,11 @@ export default function ReviewSummary({ game, review, status, progress, engineNa
     )
   }
 
-  const { accuracy, rating, counts } = review
+  const { counts } = review
+  const { accuracy, rating, accuracySource, sourceName } = summaryStats(game, review)
   return (
     <div className="summary">
+      <GameEndBanner end={gameEnd} />
       <div className="summary-grid">
         <div />
         <div className="summary-player" title={game.white.username}>
@@ -55,11 +59,18 @@ export default function ReviewSummary({ game, review, status, progress, engineNa
           )
         })}
 
-        <div className="summary-label">Game Rating</div>
+        <div className="summary-label">Game Rating (est.)</div>
         <div className="rating-box">{rating.w ?? '—'}</div>
         <div />
         <div className="rating-box">{rating.b ?? '—'}</div>
       </div>
+      <p className="summary-note">
+        {accuracySource
+          ? `Accuracy is ${accuracySource}’s own figure. Move icons and Game Rating are this app’s estimates.`
+          : `Accuracy and Game Rating are this app’s estimates${
+              sourceName ? `. Review this game on ${sourceName} to see its exact accuracy here` : ''
+            }.`}
+      </p>
       {review.opening && <div className="summary-opening">📖 {review.opening}</div>}
       <button type="button" className="btn-primary wide" onClick={onSelectFirst}>
         Start Review

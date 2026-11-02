@@ -126,3 +126,31 @@ export function describeGameEnd(game, board = null, finalTurn = null) {
     icon: info?.icon ?? (winner ? '★' : '½'),
   }
 }
+
+function kingSquare(fen, king) {
+  const ranks = fen.split(' ')[0].split('/')
+  for (let r = 0; r < 8; r += 1) {
+    let file = 0
+    for (const ch of ranks[r]) {
+      if (ch === king) return `${'abcdefgh'[file]}${8 - r}`
+      file += /\d/.test(ch) ? Number(ch) : 1
+    }
+  }
+  return null
+}
+
+/** Result markers for the kings on the final position: { square: { icon, tone } }. */
+export function endBadges(end, fen) {
+  if (!end.method && !end.winner) return {}
+  if (end.method === 'aborted') return {}
+  const white = kingSquare(fen, 'K')
+  const black = kingSquare(fen, 'k')
+  if (!end.winner) {
+    return { [white]: { icon: '½', tone: 'draw' }, [black]: { icon: '½', tone: 'draw' } }
+  }
+  const [winnerSquare, loserSquare] = end.winner === 'white' ? [white, black] : [black, white]
+  return {
+    [winnerSquare]: { icon: '♛', tone: 'win' },
+    [loserSquare]: { icon: METHODS[end.method]?.icon ?? '✕', tone: 'loss' },
+  }
+}

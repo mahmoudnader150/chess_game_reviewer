@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react'
 import MoveIcon from './MoveIcon'
+import GameEndBanner from './GameEndBanner'
 
 // Move history, two plies per row. Clicking a move jumps to it.
 // variant 'table': two plies per row (desktop / tablet).
 // variant 'strip': one horizontally scrolling line (phones).
-export default function MoveList({ moves, reviewed, ply, onSelect, variant = 'table' }) {
+export default function MoveList({ moves, reviewed, ply, onSelect, variant = 'table', gameEnd }) {
   const activeRef = useRef(null)
   const containerRef = useRef(null)
 
@@ -69,6 +70,11 @@ export default function MoveList({ moves, reviewed, ply, onSelect, variant = 'ta
             </span>
           )
         })}
+        {gameEnd && (
+          <span className="strip-end">
+            <GameEndBanner end={gameEnd} compact />
+          </span>
+        )}
       </div>
     )
   }
@@ -82,6 +88,11 @@ export default function MoveList({ moves, reviewed, ply, onSelect, variant = 'ta
           {cell(i + 1)}
         </div>
       ))}
+      {gameEnd && (
+        <div className="move-list-end">
+          <GameEndBanner end={gameEnd} compact />
+        </div>
+      )}
     </div>
   )
 }

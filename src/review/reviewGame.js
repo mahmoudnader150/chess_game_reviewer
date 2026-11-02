@@ -1,7 +1,7 @@
 import { Chess } from 'chess.js'
 import { lookupBook } from './book.js'
 import { classifyMove } from './classify.js'
-import { moveAccuracy, gameAccuracy, estimateGameRating } from './accuracy.js'
+import { moveAccuracy, gameAccuracy } from './accuracy.js'
 import { toWhitePov, whiteWinPercent } from './scoring.js'
 import { SUMMARY_ORDER } from './classifications.js'
 
@@ -229,7 +229,6 @@ export function buildReview(game, evals) {
     scores: corrected.map((c) => c.score),
     whiteWins,
     accuracy,
-    rating: { w: estimateGameRating(accuracy.w), b: estimateGameRating(accuracy.b) },
     counts,
     opening: headerOpening ?? opening,
   }

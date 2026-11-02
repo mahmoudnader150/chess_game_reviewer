@@ -1,4 +1,5 @@
 import MoveIcon from './MoveIcon'
+import GameEndBanner from './GameEndBanner'
 import { formatScore } from '../review/scoring'
 import { SHOW_BEST_FOR } from '../review/classifications'
 
@@ -24,7 +25,7 @@ const DETAILS = {
 }
 
 // Coach box above the move list describing the current move.
-export default function MoveFeedback({ move, info, status, opening }) {
+export default function MoveFeedback({ move, info, status, opening, gameEnd }) {
   if (!move) {
     return (
       <div className="feedback">
@@ -40,6 +41,7 @@ export default function MoveFeedback({ move, info, status, opening }) {
           <span className="feedback-san">{move.san}</span>
         </div>
         <div className="feedback-sub">{status === 'error' ? 'Analysis failed' : 'Analyzing…'}</div>
+        {gameEnd && <GameEndBanner end={gameEnd} compact />}
       </div>
     )
   }
@@ -66,6 +68,7 @@ export default function MoveFeedback({ move, info, status, opening }) {
           <span className="feedback-eval muted">{formatScore(info.bestScore)}</span>
         </div>
       )}
+      {gameEnd && <GameEndBanner end={gameEnd} compact />}
     </div>
   )
 }

@@ -13,6 +13,9 @@ entirely in the browser.
 - Step forward and back with the buttons or the keyboard (← → ↑ ↓ Home End), and press `F` to flip the board
 - An evaluation bar and a coach box ("Nf6 is a mistake — Qf6 was best")
 - Opening detection (from PGN headers, or the built-in opening book)
+- **How the game ended:** checkmate, resignation, time out, abandonment or the type of draw, shown in the game list, the summary, the move list and on the kings in the final position
+- **Themes:** 4 app themes and 6 board themes from the 🎨 button, remembered between visits
+- **Home page** with an animated demo board, a sample game, game filters (wins / losses / draws), a guide to the move icons and an FAQ. Your last username is remembered
 - **Fast analysis:** positions are analyzed in parallel by a pool of Stockfish workers (up to 6 on desktop, 3 on phones/tablets), each position has a time cap, the engine warms up while the intro plays, and finished reviews are saved in `localStorage` so reopening a game is instant
 - **Move sounds** (synthesized with the Web Audio API, no audio files): move, capture, castle, check, promotion and game end, plus a short accent for Brilliant / Great / Blunder moves. Toggle with the 🔊 button
 - **Intro animation** when the app opens (click, tap or any key skips it; respects "reduce motion")
@@ -63,11 +66,12 @@ These are heuristics that approximate chess.com's proprietary model, not a copy 
 
 ```
 src/
-  App.jsx                    search screen, PGN input, depth selector
-  components/                ReviewView, ReviewBoard, MoveIcon, MoveList, EvalBar, …
+  App.jsx                    app shell, game fetching, settings
+  components/                Home, ThemePicker, GameEndBanner, ReviewView, ReviewBoard, MoveList, …
+  theme/themes.js            app and board theme definitions
   hooks/useGameReview.js     runs a review (or loads a saved one)
   audio/sounds.js            synthesized move sounds
-  review/                    parsing, scoring, classification, accuracy, opening book
+  review/                    parsing, scoring, classification, accuracy, game end, opening book
   engine/
     stockfishClient.js       UCI wrapper around a Stockfish web worker + parallel EnginePool
     engineManager.js         shared engine instance, warmed up on app start

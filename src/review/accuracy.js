@@ -52,30 +52,73 @@ export function gameAccuracy(whiteWins, moves) {
   return result
 }
 
-// Rough "Game Rating": the rating at which this accuracy is typical.
-const RATING_CURVE = [
-  [0, 100],
-  [40, 400],
-  [50, 700],
-  [60, 1000],
-  [70, 1350],
-  [75, 1550],
-  [80, 1750],
-  [85, 2000],
-  [90, 2300],
-  [95, 2650],
-  [100, 3000],
+// Typical accuracy at each rating: medians from 4,592 reviewed Chess.com games
+// (official accuracy against the player's rating, smoothed to be increasing).
+// Accuracy barely moves across a huge rating range, and a single game varies
+// by about 10 points at any rating, so accuracy alone can't identify a rating.
+const TYPICAL_ACCURACY = [
+  [350, 64],
+  [650, 68],
+  [950, 72],
+  [1250, 75.5],
+  [1550, 77.5],
+  [1850, 79.5],
+  [2150, 81],
+  [2450, 83],
+  [2750, 84],
+  [3050, 86],
 ]
 
-export function estimateGameRating(accuracy) {
-  if (accuracy == null) return null
-  for (let i = 1; i < RATING_CURVE.length; i += 1) {
-    const [a1, r1] = RATING_CURVE[i]
-    if (accuracy <= a1) {
-      const [a0, r0] = RATING_CURVE[i - 1]
-      const t = (accuracy - a0) / (a1 - a0)
-      return Math.round((r0 + t * (r1 - r0)) / 50) * 50
+// Rating points per accuracy point above or below what's typical for the player.
+// An assumption, not a measurement: Chess.com doesn't publish Game Rating. It
+// makes a typical 10-point swing worth 400 rating points.
+const RATING_PER_ACCURACY_POINT = 40
+
+function interpolate(table, x, from, to) {
+  if (x <= table[0][from]) return table[0][to]
+  for (let i = 1; i < table.length; i += 1) {
+    if (x <= table[i][from]) {
+      const t = (x - table[i - 1][from]) / (table[i][from] - table[i - 1][from])
+      return table[i - 1][to] + t * (table[i][to] - table[i - 1][to])
     }
   }
-  return 3000
+  return table[table.length - 1][to]
+}
+
+/**
+ * Estimated "Game Rating": how the player's rating would be adjusted for this
+ * game's accuracy. Without a known rating, it's the rating where this accuracy
+ * is typical. Chess.com's own figure isn't available from its API.
+ */
+export function estimateGameRating(accuracy, playerRating = null) {
+  if (accuracy == null) return null
+  const rating = Number(playerRating)
+  const estimate =
+    Number.isFinite(rating) && rating > 0
+      ? rating + (accuracy - interpolate(TYPICAL_ACCURACY, rating, 0, 1)) * RATING_PER_ACCURACY_POINT
+      : interpolate(TYPICAL_ACCURACY, accuracy, 1, 0)
+  return Math.max(100, Math.min(3200, Math.round(estimate / 50) * 50))
+}
+
+const OFFICIAL_SOURCE_NAMES = { 'chess.com': 'Chess.com', lichess: 'Lichess' }
+
+/**
+ * The numbers shown in the summary. The source site's own accuracy wins over our
+ * estimate when the game was reviewed there.
+ */
+export function summaryStats(game, review) {
+  const official = game.officialAccuracy
+  const accuracy = {
+    w: official?.w ?? review.accuracy.w,
+    b: official?.b ?? review.accuracy.b,
+  }
+  return {
+    accuracy,
+    rating: {
+      w: estimateGameRating(accuracy.w, game.white.rating),
+      b: estimateGameRating(accuracy.b, game.black.rating),
+    },
+    accuracySource: official ? OFFICIAL_SOURCE_NAMES[game.source] : null,
+    sourceName: OFFICIAL_SOURCE_NAMES[game.source] ?? null,
+  }
 }

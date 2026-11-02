@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { parseGame } from '../review/reviewGame'
 import { SHOW_BEST_FOR } from '../review/classifications'
+import { describeGameEnd, endBadges } from '../review/gameEnd'
 import { useGameReview } from '../hooks/useGameReview'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { playMove, playSound, soundForMove } from '../audio/sounds'
@@ -12,7 +13,7 @@ import ReviewSummary from './ReviewSummary'
 import NavControls from './NavControls'
 import PlayerBar from './PlayerBar'
 
-export default function ReviewView({ game, analysis, soundOn = true, perspective = 'white' }) {
+export default function ReviewView({ game, analysis, soundOn = true, perspective = 'white', boardTheme }) {
   const parsed = useMemo(() => parseGame(game.pgn), [game.pgn])
   const { status, progress, review, engineName, error } = useGameReview(parsed, game.pgn, analysis)
   const isPhone = useMediaQuery('(max-width: 700px)')
@@ -21,6 +22,10 @@ export default function ReviewView({ game, analysis, soundOn = true, perspective
   const [panel, setPanel] = useState('summary')
 
   const maxPly = parsed.moves.length
+  const lastPosition = parsed.positions[maxPly]
+  const gameEnd = useMemo(() => describeGameEnd(game, parsed.ending, lastPosition.turn), [game, parsed.ending, lastPosition.turn])
+  const atEnd = ply === maxPly
+  const badges = useMemo(() => (atEnd ? endBadges(gameEnd, lastPosition.fen) : {}), [atEnd, gameEnd, lastPosition.fen])
 
   // Every navigation goes through here so the move sound plays from the
   // user's gesture (required by iOS). Forward plays the move's sound plus an
@@ -107,6 +112,8 @@ export default function ReviewView({ game, analysis, soundOn = true, perspective
               classification={info?.classification}
               bestMove={bestArrow}
               orientation={orientation}
+              boardTheme={boardTheme}
+              endBadges={badges}
             />
           </div>
         </div>
@@ -131,6 +138,7 @@ export default function ReviewView({ game, analysis, soundOn = true, perspective
         {panel === 'summary' ? (
           <ReviewSummary
             game={game}
+            gameEnd={gameEnd}
             review={review}
             status={status}
             progress={progress}
@@ -139,7 +147,7 @@ export default function ReviewView({ game, analysis, soundOn = true, perspective
           />
         ) : (
           <>
-            <MoveFeedback move={move} info={info} status={status} opening={review?.opening} />
+            <MoveFeedback move={move} info={info} status={status} opening={review?.opening} gameEnd={atEnd ? gameEnd : null} />
             {!review && status !== 'error' && (
               <div className="progress slim">
                 <div className="progress-fill" style={{ width: `${progress}%` }} />
@@ -151,6 +159,7 @@ export default function ReviewView({ game, analysis, soundOn = true, perspective
               ply={ply}
               onSelect={selectMove}
               variant={isPhone ? 'strip' : 'table'}
+              gameEnd={gameEnd}
             />
           </>
         )}

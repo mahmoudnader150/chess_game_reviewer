@@ -12,9 +12,10 @@ const DEFAULT_HIGHLIGHT = 'rgba(255, 255, 51, 0.45)'
 /**
  * The board for the current ply. Highlights the last move's squares in its
  * classification color, puts the classification badge on the moved piece,
- * and draws the engine's best move as an arrow when it differs.
+ * draws the engine's best move as an arrow when it differs, and marks the kings
+ * with the result on the final position.
  */
-export default function ReviewBoard({ fen, lastMove, classification, bestMove, orientation }) {
+export default function ReviewBoard({ fen, lastMove, classification, bestMove, orientation, boardTheme, endBadges = {} }) {
   const squareStyles = useMemo(() => {
     if (!lastMove) return {}
     const background = classification ? hexToRgba(classification.color, 0.5) : DEFAULT_HIGHLIGHT
@@ -44,10 +45,10 @@ export default function ReviewBoard({ fen, lastMove, classification, bestMove, o
     clearArrowsOnPositionChange: true,
     showAnimations: true,
     animationDurationInMs: 180,
-    darkSquareStyle: { backgroundColor: '#739552' },
-    lightSquareStyle: { backgroundColor: '#ebecd0' },
-    darkSquareNotationStyle: { color: '#ebecd0', fontWeight: 600 },
-    lightSquareNotationStyle: { color: '#739552', fontWeight: 600 },
+    darkSquareStyle: { backgroundColor: boardTheme.dark },
+    lightSquareStyle: { backgroundColor: boardTheme.light },
+    darkSquareNotationStyle: { color: boardTheme.light, fontWeight: 600 },
+    lightSquareNotationStyle: { color: boardTheme.dark, fontWeight: 600 },
     boardStyle: { borderRadius: '4px', overflow: 'visible' },
     squareRenderer: ({ square, children }) => (
       <div className="board-square" style={squareStyles[square]}>
@@ -56,6 +57,9 @@ export default function ReviewBoard({ fen, lastMove, classification, bestMove, o
           <div className={`board-badge ${topEdge ? 'top-edge' : ''} ${rightEdge ? 'right-edge' : ''}`}>
             <MoveIcon classification={classification} size={100} />
           </div>
+        )}
+        {endBadges[square] && (
+          <div className={`board-end-badge ${endBadges[square].tone}`}>{endBadges[square].icon}</div>
         )}
       </div>
     ),

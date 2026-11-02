@@ -5,9 +5,12 @@ import { warmUpEngine } from './engine/engineManager'
 import { unlockAudio } from './audio/sounds'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { useMediaQuery } from './hooks/useMediaQuery'
-import GameList from './components/GameList'
+import { useThemes } from './hooks/useThemes'
+import { SAMPLE_PGN } from './review/sampleGame'
+import Home from './components/Home'
 import ReviewView from './components/ReviewView'
 import Splash from './components/Splash'
+import ThemePicker from './components/ThemePicker'
 
 // depth = target search depth, movetime = hard cap per position (ms) so a
 // single complicated position can't stall the whole review.
@@ -23,8 +26,8 @@ function perspectiveFor(game, username) {
 }
 
 export default function App() {
-  const [username, setUsername] = useState('')
-  const [source, setSource] = useState('chess.com')
+  const [username, setUsername] = useLocalStorage('settings:lastUsername', '')
+  const [source, setSource] = useLocalStorage('settings:lastSource', 'chess.com')
   const [games, setGames] = useState([])
   const [searchedUser, setSearchedUser] = useState('')
   const [loading, setLoading] = useState(false)
@@ -36,6 +39,7 @@ export default function App() {
   const hideSplash = useCallback(() => setShowSplash(false), [])
   const preset = PRESETS[presetKey] ?? PRESETS.standard
   const isPhone = useMediaQuery('(max-width: 700px)')
+  const { appKey, setAppKey, boardKey, setBoardKey, boardTheme } = useThemes()
 
   // Start compiling Stockfish while the user is still picking a game.
   useEffect(() => {
@@ -62,13 +66,13 @@ export default function App() {
     }
   }
 
-  const handlePgn = () => {
+  const reviewPgn = (pgn) => {
     try {
       const chess = new Chess()
-      chess.loadPgn(pgnText.trim())
+      chess.loadPgn(pgn.trim())
       if (chess.history().length === 0) throw new Error('The PGN has no moves')
       setError(null)
-      setSelectedGame(gameFromPgn(pgnText.trim(), chess.getHeaders()))
+      setSelectedGame(gameFromPgn(pgn.trim(), chess.getHeaders()))
     } catch (err) {
       setError(`Invalid PGN: ${err.message}`)
     }
@@ -96,6 +100,7 @@ export default function App() {
           >
             {soundOn ? '🔊' : '🔇'}
           </button>
+          <ThemePicker appKey={appKey} onAppChange={setAppKey} boardKey={boardKey} onBoardChange={setBoardKey} />
           <label className="depth-select">
             <span className="depth-label">Analysis</span>
             <select value={presetKey} onChange={(e) => setPresetKey(e.target.value)}>
@@ -121,59 +126,29 @@ export default function App() {
           analysis={preset}
           soundOn={soundOn}
           perspective={perspectiveFor(selectedGame, searchedUser)}
+          boardTheme={boardTheme}
         />
       ) : (
-        <main className="dashboard">
-          <section className="search-card">
-            <h1>Review your games</h1>
-            <p className="muted">Fetch your recent games from Chess.com or Lichess and get a move-by-move engine review.</p>
-            <form className="search-form" onSubmit={handleSearch}>
-              <div className="source-toggle" role="radiogroup" aria-label="Game source">
-                {['chess.com', 'lichess'].map((s) => (
-                  <button
-                    type="button"
-                    key={s}
-                    role="radio"
-                    aria-checked={source === s}
-                    className={source === s ? 'active' : ''}
-                    onClick={() => setSource(s)}
-                  >
-                    {s === 'chess.com' ? 'Chess.com' : 'Lichess'}
-                  </button>
-                ))}
-              </div>
-              <input
-                type="text"
-                placeholder={`${source === 'chess.com' ? 'Chess.com' : 'Lichess'} username`}
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoFocus
-              />
-              <button type="submit" className="btn-primary" disabled={loading || !username.trim()}>
-                {loading ? 'Loading…' : 'Get games'}
-              </button>
-            </form>
-            <button type="button" className="link-btn" onClick={() => setShowPgn((v) => !v)}>
-              {showPgn ? 'Hide PGN input' : 'Or paste a PGN'}
-            </button>
-            {showPgn && (
-              <div className="pgn-box">
-                <textarea
-                  rows={6}
-                  placeholder='[Event "..."]&#10;1. e4 e5 2. Nf3 ...'
-                  value={pgnText}
-                  onChange={(e) => setPgnText(e.target.value)}
-                />
-                <button type="button" className="btn-primary" onClick={handlePgn} disabled={!pgnText.trim()}>
-                  Review PGN
-                </button>
-              </div>
-            )}
-            {error && <div className="error-box">{error}</div>}
-          </section>
-
-          <GameList games={games} username={searchedUser} onSelect={setSelectedGame} />
-        </main>
+        <Home
+          username={username}
+          onUsernameChange={setUsername}
+          source={source}
+          onSourceChange={setSource}
+          loading={loading}
+          error={error}
+          onSearch={handleSearch}
+          showPgn={showPgn}
+          onTogglePgn={() => setShowPgn((v) => !v)}
+          pgnText={pgnText}
+          onPgnTextChange={setPgnText}
+          onReviewPgn={() => reviewPgn(pgnText)}
+          onReviewSample={() => reviewPgn(SAMPLE_PGN)}
+          games={games}
+          searchedUser={searchedUser}
+          onSelectGame={setSelectedGame}
+          boardTheme={boardTheme}
+          isPhone={isPhone}
+        />
       )}
     </div>
   )

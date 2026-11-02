@@ -13,6 +13,10 @@ entirely in the browser.
 - Step forward and back with the buttons or the keyboard (← → ↑ ↓ Home End), and press `F` to flip the board
 - An evaluation bar and a coach box ("Nf6 is a mistake — Qf6 was best")
 - Opening detection (from PGN headers, or the built-in opening book)
+- **Fast analysis:** positions are analyzed in parallel by a pool of Stockfish workers (up to 6 on desktop, 3 on phones/tablets), each position has a time cap, the engine warms up while the intro plays, and finished reviews are saved in `localStorage` so reopening a game is instant
+- **Move sounds** (synthesized with the Web Audio API, no audio files): move, capture, castle, check, promotion and game end, plus a short accent for Brilliant / Great / Blunder moves. Toggle with the 🔊 button
+- **Intro animation** when the app opens (click, tap or any key skips it; respects "reduce motion")
+- **Responsive** for phones, tablets (portrait and landscape) and desktop: on phones the board goes edge to edge, moves scroll in a horizontal strip, the controls stay pinned at the bottom, and you can swipe the board left/right to step through moves
 
 ## Getting started
 
@@ -35,7 +39,7 @@ npm run lint
 ## How the review works
 
 1. **Parse** the PGN with chess.js into positions `p0 … pN`.
-2. **Analyze** each position with Stockfish at the chosen depth (Fast 12 / Standard 14 / Deep 18), using MultiPV 2 so the second-best move is known too.
+2. **Analyze** each position with Stockfish (Fast: depth 12, max 0.5s per position / Standard: depth 14, max 1.2s / Deep: depth 18, max 3s), using MultiPV 2 so the second-best move is known too. Positions are spread over several workers in parallel.
 3. **Correct** the evaluations with a backward minimax pass. A played move is valued by the search of the *next* position, which looks one ply deeper. The engine's other lines are the alternatives. This catches cases where the engine missed something, such as a mate, one ply earlier.
 4. **Convert** every evaluation to a win percentage (Lichess' logistic model). Each move's *loss* is the drop in the mover's win% compared with the best move.
 5. **Classify** each move (`src/review/classify.js`):
@@ -61,10 +65,12 @@ These are heuristics that approximate chess.com's proprietary model, not a copy 
 src/
   App.jsx                    search screen, PGN input, depth selector
   components/                ReviewView, ReviewBoard, MoveIcon, MoveList, EvalBar, …
-  hooks/useGameReview.js     runs a review with Stockfish (or the fallback) and caches it
+  hooks/useGameReview.js     runs a review (or loads a saved one)
+  audio/sounds.js            synthesized move sounds
   review/                    parsing, scoring, classification, accuracy, opening book
   engine/
-    stockfishClient.js       UCI wrapper around the Stockfish web worker
+    stockfishClient.js       UCI wrapper around a Stockfish web worker + parallel EnginePool
+    engineManager.js         shared engine instance, warmed up on app start
     localClient.js           same interface over the built-in engine (fallback)
     engine.js, worker.js     built-in 0x88 JavaScript engine
   services/api-service.js    Chess.com and Lichess API clients

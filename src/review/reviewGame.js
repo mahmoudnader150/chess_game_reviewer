@@ -33,6 +33,7 @@ export function parseGame(pgn) {
     headers,
     startFen,
     positions,
+    ending: boardEnding(chess),
     moves: moves.map((m, i) => ({
       ply: i + 1,
       color: m.color,
@@ -46,6 +47,16 @@ export function parseGame(pgn) {
       after: m.after,
     })),
   }
+}
+
+// What the final position itself says about the end of the game.
+function boardEnding(chess) {
+  if (chess.isCheckmate()) return 'checkmate'
+  if (chess.isStalemate()) return 'stalemate'
+  if (chess.isInsufficientMaterial()) return 'insufficient'
+  if (chess.isThreefoldRepetition()) return 'repetition'
+  if (chess.isDrawByFiftyMoves()) return 'fiftyMove'
+  return null
 }
 
 function uciToSan(fen, uci) {

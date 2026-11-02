@@ -2,9 +2,14 @@
  * Fetch finished games from the public Chess.com and Lichess APIs and
  * normalize them to a common shape:
  *
- * { id, source, url, pgn, white, black, result, date, timeClass, timeControl }
+ * { id, source, url, pgn, white, black, result, date, timeClass, timeControl, termination, officialAccuracy }
  *   white/black: { username, rating, result: 'win'|'loss'|'draw' }
+ *   termination: how the game ended, see review/gameEnd.js (null if unknown)
+ *   officialAccuracy: { w, b } from the source site, only for games already
+ *     reviewed there (null otherwise)
  */
+
+import { chessComTermination, lichessTermination, pgnTermination } from '../review/gameEnd'
 
 const CHESS_COM_DRAWS = new Set(['agreed', 'repetition', 'stalemate', 'insufficient', '50move', 'timevsinsufficient'])
 
@@ -54,6 +59,8 @@ export async function fetchChessComGames(username, limit = 40) {
       date: new Date(game.end_time * 1000),
       timeClass: game.time_class,
       timeControl: game.time_control,
+      termination: chessComTermination(game.white.result, game.black.result),
+      officialAccuracy: game.accuracies ? { w: game.accuracies.white ?? null, b: game.accuracies.black ?? null } : null,
     }
   })
 }
@@ -70,6 +77,7 @@ export async function fetchLichessGames(username, limit = 40) {
     max: String(limit),
     pgnInJson: 'true',
     moves: 'true',
+    accuracy: 'true',
     perfType: 'ultraBullet,bullet,blitz,rapid,classical,correspondence',
   })
   const response = await fetch(
@@ -90,6 +98,8 @@ export async function fetchLichessGames(username, limit = 40) {
   return games.map((game) => {
     const white = game.winner === 'white' ? 'win' : game.winner === 'black' ? 'loss' : 'draw'
     const black = game.winner === 'black' ? 'win' : game.winner === 'white' ? 'loss' : 'draw'
+    const whiteAccuracy = game.players.white.analysis?.accuracy ?? null
+    const blackAccuracy = game.players.black.analysis?.accuracy ?? null
     const clock = game.clock ? `${game.clock.initial}+${game.clock.increment}` : null
     return {
       id: game.id,
@@ -102,12 +112,18 @@ export async function fetchLichessGames(username, limit = 40) {
       date: new Date(game.lastMoveAt ?? game.createdAt),
       timeClass: game.speed,
       timeControl: clock,
+      termination: lichessTermination(game.status, Boolean(game.winner)),
+      officialAccuracy: whiteAccuracy != null || blackAccuracy != null ? { w: whiteAccuracy, b: blackAccuracy } : null,
     }
   })
 }
 
 /** Build a game object from a pasted PGN. */
-export function gameFromPgn(pgn, headers) {
+export function gameFromPgn(pgn, rawHeaders) {
+  // chess.js fills missing tags with "?"; treat those as absent.
+  const headers = Object.fromEntries(
+    Object.entries(rawHeaders).filter(([, v]) => v && v !== '?' && !/^\?+[.?]*$/.test(v)),
+  )
   const result = headers.Result ?? '*'
   const toResult = (side) => {
     if (result === '1/2-1/2') return 'draw'
@@ -126,5 +142,7 @@ export function gameFromPgn(pgn, headers) {
     date: headers.Date ? new Date(headers.Date.replace(/\./g, '-')) : new Date(),
     timeClass: headers.TimeControl ?? 'pgn',
     timeControl: headers.TimeControl ?? null,
+    termination: pgnTermination(headers),
+    officialAccuracy: null,
   }
 }

@@ -1,14 +1,21 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Chess } from 'chess.js'
 import { fetchChessComGames, fetchLichessGames, gameFromPgn } from './services/api-service'
+import { warmUpEngine } from './engine/engineManager'
+import { unlockAudio } from './audio/sounds'
+import { useLocalStorage } from './hooks/useLocalStorage'
+import { useMediaQuery } from './hooks/useMediaQuery'
 import GameList from './components/GameList'
 import ReviewView from './components/ReviewView'
+import Splash from './components/Splash'
 
-const DEPTHS = [
-  { value: 12, label: 'Fast' },
-  { value: 14, label: 'Standard' },
-  { value: 18, label: 'Deep' },
-]
+// depth = target search depth, movetime = hard cap per position (ms) so a
+// single complicated position can't stall the whole review.
+const PRESETS = {
+  fast: { label: 'Fast', depth: 12, movetime: 500 },
+  standard: { label: 'Standard', depth: 14, movetime: 1200 },
+  deep: { label: 'Deep', depth: 18, movetime: 3000 },
+}
 
 function perspectiveFor(game, username) {
   const name = username.trim().toLowerCase()
@@ -23,7 +30,17 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [selectedGame, setSelectedGame] = useState(null)
-  const [depth, setDepth] = useState(14)
+  const [presetKey, setPresetKey] = useLocalStorage('settings:analysis', 'standard')
+  const [soundOn, setSoundOn] = useLocalStorage('settings:sound', true)
+  const [showSplash, setShowSplash] = useState(true)
+  const hideSplash = useCallback(() => setShowSplash(false), [])
+  const preset = PRESETS[presetKey] ?? PRESETS.standard
+  const isPhone = useMediaQuery('(max-width: 700px)')
+
+  // Start compiling Stockfish while the user is still picking a game.
+  useEffect(() => {
+    warmUpEngine()
+  }, [])
   const [pgnText, setPgnText] = useState('')
   const [showPgn, setShowPgn] = useState(false)
 
@@ -58,26 +75,40 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className="app" onPointerDown={unlockAudio}>
+      {showSplash && <Splash onDone={hideSplash} />}
       <header className="topbar">
         <button type="button" className="logo" onClick={() => setSelectedGame(null)}>
           <img src="/knight.svg" alt="" width="28" height="28" />
-          <span>Game Reviewer</span>
+          <span className="logo-text">Game Reviewer</span>
         </button>
         <div className="topbar-right">
+          <button
+            type="button"
+            className={`icon-btn ${soundOn ? '' : 'off'}`}
+            title={soundOn ? 'Mute move sounds' : 'Unmute move sounds'}
+            aria-label={soundOn ? 'Mute move sounds' : 'Unmute move sounds'}
+            aria-pressed={soundOn}
+            onClick={() => {
+              unlockAudio()
+              setSoundOn((v) => !v)
+            }}
+          >
+            {soundOn ? '🔊' : '🔇'}
+          </button>
           <label className="depth-select">
-            Analysis
-            <select value={depth} onChange={(e) => setDepth(Number(e.target.value))}>
-              {DEPTHS.map((d) => (
-                <option key={d.value} value={d.value}>
-                  {d.label} (depth {d.value})
+            <span className="depth-label">Analysis</span>
+            <select value={presetKey} onChange={(e) => setPresetKey(e.target.value)}>
+              {Object.entries(PRESETS).map(([key, p]) => (
+                <option key={key} value={key}>
+                  {isPhone ? p.label : `${p.label} (depth ${p.depth})`}
                 </option>
               ))}
             </select>
           </label>
           {selectedGame && (
             <button type="button" className="btn-secondary" onClick={() => setSelectedGame(null)}>
-              ← Games
+              ←<span className="hide-phone"> Games</span>
             </button>
           )}
         </div>
@@ -85,9 +116,10 @@ export default function App() {
 
       {selectedGame ? (
         <ReviewView
-          key={`${selectedGame.id}-${depth}`}
+          key={`${selectedGame.id}-${presetKey}`}
           game={selectedGame}
-          depth={depth}
+          analysis={preset}
+          soundOn={soundOn}
           perspective={perspectiveFor(selectedGame, searchedUser)}
         />
       ) : (

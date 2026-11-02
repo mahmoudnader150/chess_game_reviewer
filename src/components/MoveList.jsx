@@ -2,12 +2,28 @@ import { useEffect, useRef } from 'react'
 import MoveIcon from './MoveIcon'
 
 // Move history, two plies per row. Clicking a move jumps to it.
-export default function MoveList({ moves, reviewed, ply, onSelect }) {
+// variant 'table': two plies per row (desktop / tablet).
+// variant 'strip': one horizontally scrolling line (phones).
+export default function MoveList({ moves, reviewed, ply, onSelect, variant = 'table' }) {
   const activeRef = useRef(null)
+  const containerRef = useRef(null)
 
+  // Keep the current move visible by scrolling the list itself only.
+  // (scrollIntoView would also scroll the page on stacked mobile layouts.)
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: 'nearest' })
-  }, [ply])
+    const box = containerRef.current
+    const el = activeRef.current
+    if (!box) return
+    if (!el) {
+      if (ply === 0) box.scrollTo({ top: 0, left: 0 })
+      return
+    }
+    if (variant === 'strip') {
+      box.scrollTo({ left: el.offsetLeft - box.clientWidth / 2 + el.offsetWidth / 2, behavior: 'smooth' })
+    } else if (el.offsetTop < box.scrollTop || el.offsetTop + el.offsetHeight > box.scrollTop + box.clientHeight) {
+      box.scrollTo({ top: el.offsetTop - box.clientHeight / 2 + el.offsetHeight / 2 })
+    }
+  }, [ply, variant])
 
   const rows = []
   const firstIsBlack = moves[0]?.color === 'b'
@@ -35,8 +51,30 @@ export default function MoveList({ moves, reviewed, ply, onSelect }) {
     )
   }
 
+  if (variant === 'strip') {
+    return (
+      <div className="move-strip" role="list" ref={containerRef}>
+        {moves.map((move, index) => {
+          const showNumber = move.color === 'w' || index === 0
+          const number = startNumber + Math.floor((index + offset) / 2)
+          return (
+            <span className="strip-item" key={index} role="listitem">
+              {showNumber && (
+                <span className="move-number">
+                  {number}
+                  {move.color === 'w' ? '.' : '…'}
+                </span>
+              )}
+              {cell(index)}
+            </span>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
-    <div className="move-list" role="list">
+    <div className="move-list" role="list" ref={containerRef}>
       {rows.map((i, row) => (
         <div className="move-row" key={i} role="listitem">
           <span className="move-number">{startNumber + row}.</span>

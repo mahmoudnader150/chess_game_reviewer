@@ -12,3 +12,4 @@ yarn-error.log*
 
 # Copied from node_modules/stockfish by scripts/copy-stockfish.mjs
 public/stockfish
+.vercel
